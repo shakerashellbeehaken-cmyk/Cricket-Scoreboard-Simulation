@@ -1,60 +1,49 @@
-// import Match from "@/models/Match";
-// import { connectDB } from "@/lib/db";
-// import { teams } from "@/lib/teams";
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { connectDB } from "@/lib/db";
+import Match from "@/models/Match";
 
-// export async function POST(req) {
-//   await connectDB();
+export async function POST(req) {
+  const session = await getServerSession(authOptions);
 
-//   const { matchId, decision } = await req.json();
-//   const match = await Match.findById(matchId);
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-//   if (!match || match.tossDecision) {
-//     return Response.json({ error: "Invalid toss state" }, { status: 400 });
-//   }
+  const { matchId, decision } = await req.json();
 
-//   match.tossDecision = decision;
+  await connectDB();
 
-//   let battingTeam, bowlingTeam;
+  const match = await Match.findById(matchId);
 
-//   if (decision === "bat") {
-//     battingTeam = match.tossWinner;
-//     bowlingTeam =
-//       match.tossWinner === match.teamA ? match.teamB : match.teamA;
-//   } else {
-//     bowlingTeam = match.tossWinner;
-//     battingTeam =
-//       match.tossWinner === match.teamA ? match.teamB : match.teamA;
-//   }
+  if (!match) {
+    return NextResponse.json({ error: "Match not found" }, { status: 404 });
+  }
 
-//   const players =
-//     teams.find(t => t.name === battingTeam).players;
+  // 🔒 OWNER CHECK
+  if (match.createdBy.toString() !== session.user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
-//   match.innings.push({
-//     battingTeam,
-//     bowlingTeam,
+  if (match.toss.winner) {
+    return NextResponse.json(
+      { error: "Toss already completed" },
+      { status: 400 }
+    );
+  }
 
-//     totalRuns: 0,
-//     wickets: 0,
-//     oversCompleted: 0,
-//     ballsInOver: 0,
+  const winner = Math.random() > 0.5 ? match.teamA : match.teamB;
 
-//     players: players.map(name => ({
-//       name,
-//       runs: 0,
-//       balls: 0,
-//       status: "yet_to_bat"
-//     })),
+  match.toss.winner = winner;
+  match.toss.decision = decision; // "bat" | "bowl"
+  match.status = "IN_PROGRESS";
 
-//     strikerIndex: 0,
-//     nonStrikerIndex: 1,
-//     nextBatsmanIndex: 2
-//   });
+  await match.save();
 
-//   match.innings[0].players[0].status = "batting";
-//   match.innings[0].players[1].status = "batting";
-
-//   match.status = "in_progress";
-
-//   await match.save();
-//   return Response.json(match);
-// }
+  return NextResponse.json({
+    message: "Toss completed",
+    winner,
+    decision,
+  });
+}

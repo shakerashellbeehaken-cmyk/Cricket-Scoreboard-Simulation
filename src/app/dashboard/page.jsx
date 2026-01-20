@@ -1,67 +1,88 @@
-// import { getServerSession } from "next-auth";
-// import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-// import { getMatchesByUser } from "@/repositories/matchRepository";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import LogoutButton from "./LogoutButton";
 
-// import styles from "./Dashboard.module.css";
+export default async function DashboardPage() {
+  const session = await getServerSession(authOptions);
 
-// async function getMatches() {
-//   const session = await getServerSession(authOptions);
+  // 🔒 Auth guard (NO logout here)
+  if (!session) {
+    redirect("/login");
+  }
 
-//   if (!session) {
-//     return [];
-//   }
+  const user = session.user;
 
-//   return getMatchesByUser(session.user.id);
-// }
+  return (
+    <main style={{ padding: "32px" }}>
+      <h1>Dashboard</h1>
 
+      {/* Logout */}
+      <LogoutButton />
 
-// export default async function DashboardPage() {
-//   const matches = await getMatches();
+      {/* Profile */}
+      <section style={{ marginTop: "24px" }}>
+        <h2>Profile</h2>
+        <p><strong>Name:</strong> {user.name}</p>
+        <p><strong>Email:</strong> {user.email}</p>
 
-//   return (
-//     <section className={styles.dashboard}>
-//       <div className={styles.header}>
-//         <h1>Dashboard</h1>
-//         <a href="/match/new" className={styles.createBtn}>
-//           <button>+ Create New Match</button>
-//         </a>
-//       </div>
-//        <h1>My Matches</h1>
+        {user.image && (
+          <img
+            src={user.image}
+            alt="Profile"
+            width={80}
+            height={80}
+            style={{ borderRadius: "50%" }}
+          />
+        )}
+      </section>
 
-//       {matches.map((match) => (
-//         <div key={match._id}>
-//           {match.teamA} vs {match.teamB}
-//         </div>
-//       ))}
+      {/* Frequent Player */}
+      <section style={{ marginTop: "24px" }}>
+        <h3>Frequent Player</h3>
+        <p>Coming soon</p>
+      </section>
 
-//       <h2 className={styles.subTitle}>Match History</h2>
+      {/* Match History */}
+      <section style={{ marginTop: "24px" }}>
+        <h3>Previous Matches</h3>
+        <MatchHistory />
+      </section>
 
-//       {matches.length === 0 && (
-//         <p className={styles.empty}>No matches played yet.</p>
-//       )}
+      {/* Start Match */}
+      <section style={{ marginTop: "24px" }}>
+        <Link href="/match/new">
+          <button>Start New Match</button>
+        </Link>
+      </section>
+    </main>
+  );
+}
 
-//       <div className={styles.list}>
-//         {matches.map((match) => (
-//           <div key={match._id} className={styles.card}>
-//             <div>
-//               <strong>{match.teamA}</strong> vs{" "}
-//               <strong>{match.teamB}</strong>
-//             </div>
+/* ---------- Server Component for history ---------- */
+async function MatchHistory() {
+  const res = await fetch("http://localhost:3000/api/match/history", {
+    cache: "no-store",
+  });
 
-//             <div className={styles.meta}>
-//               Status: {match.status} | RR: {match.runRate}
-//             </div>
+  if (!res.ok) {
+    return <p>Failed to load match history.</p>;
+  }
 
-//             <a href={`/match/${match._id}`} className={styles.link}>
-//               View Match →
-//             </a>
-//           </div>
-//         ))}
-//       </div>
-//     </section>
-//   );
-// }
+  const matches = await res.json();
 
-export default function DashboardPage() {
-  return <div>Dashboard Page</div>;
+  if (matches.length === 0) {
+    return <p>No matches played yet.</p>;
+  }
+
+  return (
+    <ul>
+      {matches.map((match) => (
+        <li key={match._id}>
+          {match.teamA} vs {match.teamB} — {match.status}
+        </li>
+      ))}
+    </ul>
+  );
 }

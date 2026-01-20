@@ -1,30 +1,24 @@
-// import User from "@/models/User";
-// import { connectDB } from "@/lib/db";
-
-// export async function findUserByEmail(email) {
-//   await connectDB();
-//   return User.findOne({ email });
-// }
-
-// export async function createUser(data) {
-//   await connectDB();
-//   return User.create(data);
-// }
 import User from "@/models/User";
+import { connectDB } from "@/lib/db";
 
-export const createUser = (data) => {
+
+export async function createUser(data) {
+  await connectDB();
   return User.create(data);
 };
 
-export const findUserByEmail = (email) => {
+export async function findUserByEmail(email) {
+  await connectDB();
   return User.findOne({ email });
 };
 
-export const findUserById = (id) => {
+export async function findUserById(id) {
+  await connectDB();
   return User.findById(id);
 };
 
-export const addMatchToUser = (userId, matchId) => {
+export async function addMatchToUser(userId, matchId) {
+  await connectDB();
   return User.findByIdAndUpdate(
     userId,
     { $push: { matchHistory: matchId } },

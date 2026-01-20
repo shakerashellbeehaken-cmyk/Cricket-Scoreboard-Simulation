@@ -6,14 +6,14 @@ export default function HomePage() {
       <h1>Virtual Cricket Match</h1>
 
       <p>
-        Play a simple virtual cricket match.
-        Create a match, play ball by ball, pause, resume,
-        and view match history.
+        Play a virtual cricket match ball-by-ball.
+        Login to start a new match or continue previous ones.
       </p>
 
-      <Link href="/dashboard">
-        <button>Go to Dashboard</button>
-      </Link>
+     <Link href="/login">
+  <button>Login</button>
+</Link>
+
     </main>
   );
 }

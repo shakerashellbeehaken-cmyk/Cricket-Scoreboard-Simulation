@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import GitHubProvider from "next-auth/providers/github";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
@@ -7,17 +8,20 @@ import bcrypt from "bcryptjs";
 
 export const authOptions = {
   session: {
-    strategy: "jwt",
+    strategy: "jwt", // ✅ REQUIRED for persistent login
   },
 
   providers: [
-    // Google OAuth
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
 
-    // Email + Password
+    GitHubProvider({
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    }),
+
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -28,23 +32,19 @@ export const authOptions = {
         await connectDB();
 
         const user = await User.findOne({ email: credentials.email });
+        if (!user || user.provider !== "credentials") return null;
 
-        if (!user || user.provider !== "credentials") {
-          return null;
-        }
-
-        const isValid = await bcrypt.compare(
+        const valid = await bcrypt.compare(
           credentials.password,
           user.password
         );
 
-        if (!isValid) return null;
+        if (!valid) return null;
 
         return {
           id: user._id.toString(),
           name: user.name,
           email: user.email,
-          provider: user.provider,
         };
       },
     }),
@@ -54,33 +54,29 @@ export const authOptions = {
     async signIn({ user, account }) {
       await connectDB();
 
-      const existingUser = await User.findOne({ email: user.email });
-
-      if (!existingUser) {
+      const existing = await User.findOne({ email: user.email });
+      if (!existing) {
         await User.create({
           name: user.name,
           email: user.email,
           provider: account.provider,
+          matchHistory: [],
         });
       }
-
       return true;
     },
 
-    async session({ session }) {
-      await connectDB();
+    // 🔑 Persist user id in JWT
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
 
-      if (!session?.user?.email) return session;
-
-      const dbUser = await User.findOne({
-        email: session.user.email,
-      });
-
-      if (!dbUser) return session;
-
-      session.user.id = dbUser._id.toString();
-      session.user.provider = dbUser.provider;
-
+    // 🔁 Map JWT → session
+    async session({ session, token }) {
+      session.user.id = token.id;
       return session;
     },
   },
